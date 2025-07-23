@@ -1,9 +1,10 @@
 import streamlit as st
 import random
 from PIL import Image
+import os
 import time
 
-# 이미지 매핑
+# 과일 매핑
 fruit_names = {
     "딸기": "strawberry.png",
     "바나나": "banana.png",
@@ -11,7 +12,14 @@ fruit_names = {
     "라임": "lime.png"
 }
 
-# 초기화
+fruit_emojis = {
+    "딸기": "🍓",
+    "바나나": "🍌",
+    "자두": "🍇",  # 자두는 포도 이모지로 대체
+    "라임": "🍈"   # 라임은 멜론 이모지로 대체
+}
+
+# 세션 초기화
 if "cards" not in st.session_state:
     fruits = list(fruit_names.keys())
     st.session_state.cards = [(random.choice(fruits), random.randint(1, 5)) for _ in range(40)]
@@ -22,8 +30,9 @@ if "cards" not in st.session_state:
     st.session_state.ai_score = 0
     st.session_state.message = ""
 
-st.title("🎮 할리갈리 vs AI")
+st.title("🎮 할리갈리 vs AI (이미지 없는 버전도 OK)")
 
+# 카드 내기
 def play_card(player):
     if st.session_state.cards:
         card = st.session_state.cards.pop()
@@ -32,6 +41,7 @@ def play_card(player):
     else:
         st.session_state.message = "📦 카드가 모두 소진되었습니다!"
 
+# 종 치기
 def check_bell(player):
     counter = {}
     for fruit, count in st.session_state.shown:
@@ -68,15 +78,13 @@ if st.session_state.turn == "ai":
     st.subheader("🤖 AI의 턴입니다")
     time.sleep(1)
     play_card("AI")
-    
-    # AI 반응 계산
+
     counter = {}
     for fruit, count in st.session_state.shown:
         counter[fruit] = counter.get(fruit, 0) + count
     found_five = any(c == 5 for c in counter.values())
 
-    # 확률적 반응
-    time.sleep(1.5)  # 반응 딜레이
+    time.sleep(1.5)
     ai_reacts = False
     if found_five:
         ai_reacts = random.random() < 0.8  # 80% 확률로 종침
@@ -92,11 +100,15 @@ if st.session_state.turn == "ai":
 st.markdown("### 📌 최근 카드들:")
 latest = st.session_state.shown[-5:]
 for fruit, count in reversed(latest):
-    st.write(f"{fruit} {count}개")
-    images = [Image.open(f"images/{fruit_names[fruit]}") for _ in range(count)]
-    st.image(images, width=50)
+    path = f"images/{fruit_names[fruit]}"
+    if os.path.exists(path):
+        images = [Image.open(path) for _ in range(count)]
+        st.image(images, width=50)
+    else:
+        emoji = fruit_emojis.get(fruit, "❓")
+        st.write(f"**{fruit} {count}개**  →  {emoji * count}")
 
-# 점수 표시
+# 점수
 col1, col2 = st.columns(2)
 col1.metric("🧍 당신 점수", st.session_state.player_score)
 col2.metric("🤖 AI 점수", st.session_state.ai_score)
