@@ -1,89 +1,51 @@
 import streamlit as st
 import random
 
-st.set_page_config(page_title="할리갈리 게임", layout="centered")
-
-st.title("🍓 할리갈리 게임 🎲")
-st.markdown("과일이 정확히 5개일 때 종을 누르세요!")
-
-# 초기 세팅
-if "players" not in st.session_state:
-    st.session_state.players = []
+# 초기화
 if "cards" not in st.session_state:
+    fruits = ["딸기", "바나나", "자두", "라임"]
     st.session_state.cards = []
-if "fruit_types" not in st.session_state:
-    st.session_state.fruit_types = ["🍓", "🍌", "🍇", "🍊"]
-if "bell_pressed" not in st.session_state:
-    st.session_state.bell_pressed = None
-if "scores" not in st.session_state:
-    st.session_state.scores = {}
+    for _ in range(30):
+        fruit = random.choice(fruits)
+        count = random.randint(1, 5)
+        st.session_state.cards.append((fruit, count))
+    random.shuffle(st.session_state.cards)
+    st.session_state.shown = []
+    st.session_state.score = 0
+    st.session_state.message = ""
 
-# 플레이어 등록
-with st.form("player_form"):
-    player_input = st.text_input("플레이어 이름 입력")
-    submit = st.form_submit_button("추가하기")
-    if submit and player_input:
-        if player_input not in st.session_state.players:
-            st.session_state.players.append(player_input)
-            st.session_state.scores[player_input] = 0
+st.title("🍓 할리갈리 게임")
+st.subheader("🃏 카드를 보고 종을 쳐보세요!")
 
-# 플레이어 목록 표시
-if st.session_state.players:
-    st.markdown("### 참가자")
-    st.write(", ".join(st.session_state.players))
-else:
-    st.warning("플레이어를 추가해주세요.")
+# 현재 카드 상태
+if st.button("다음 카드 내기"):
+    if st.session_state.cards:
+        st.session_state.shown.append(st.session_state.cards.pop())
+        st.session_state.message = ""
+    else:
+        st.session_state.message = "카드가 모두 소진되었습니다!"
 
-# 카드 뽑기
-st.divider()
-st.subheader("🃏 카드 뽑기")
+# 종 치기
+if st.button("⏰ 종 치기!"):
+    fruit_counter = {}
+    for fruit, count in st.session_state.shown:
+        fruit_counter[fruit] = fruit_counter.get(fruit, 0) + count
+    correct = any(count == 5 for count in fruit_counter.values())
+    if correct:
+        st.session_state.score += 1
+        st.session_state.message = "✅ 정답! 점수 +1"
+    else:
+        st.session_state.score -= 1
+        st.session_state.message = "❌ 오답! 점수 -1"
 
-cols = st.columns(len(st.session_state.players))
-for idx, player in enumerate(st.session_state.players):
-    with cols[idx]:
-        if st.button(f"{player} 카드 내기", key=f"card_{player}"):
-            fruit = random.choice(st.session_state.fruit_types)
-            count = random.randint(1, 5)
-            st.session_state.cards.append((player, fruit, count))
-            st.session_state.bell_pressed = None  # 초기화
+# 공개된 카드
+st.markdown("### 📌 현재까지 공개된 카드:")
+for fruit, count in reversed(st.session_state.shown[-5:]):  # 최근 카드 5장 표시
+    st.write(f"→ {fruit} {count}개")
 
-# 카드 보여주기
-if st.session_state.cards:
-    st.markdown("### 현재 카드 상태")
-    for player, fruit, count in st.session_state.cards:
-        st.write(f"{player}: {fruit} x {count}")
+# 점수
+st.metric("현재 점수", st.session_state.score)
 
-# 종 누르기
-st.divider()
-st.subheader("🔔 종 누르기")
-
-for player in st.session_state.players:
-    if st.button(f"{player} 종 누르기", key=f"bell_{player}"):
-        if not st.session_state.bell_pressed:
-            st.session_state.bell_pressed = player
-            # 현재 카드의 과일 개수 총합 계산
-            fruit_counter = {}
-            for _, fruit, count in st.session_state.cards:
-                fruit_counter[fruit] = fruit_counter.get(fruit, 0) + count
-            if any(count == 5 for count in fruit_counter.values()):
-                st.success(f"{player} 정답! 점수 +1")
-                st.session_state.scores[player] += 1
-            else:
-                st.error(f"{player} 오답! 점수 -1")
-                st.session_state.scores[player] -= 1
-            # 카드 초기화
-            st.session_state.cards = []
-
-# 점수판
-st.divider()
-st.subheader("📊 점수판")
-for player in st.session_state.players:
-    st.write(f"{player}: {st.session_state.scores[player]}점")
-
-# 리셋 버튼
-if st.button("🔄 게임 리셋"):
-    st.session_state.cards = []
-    st.session_state.bell_pressed = None
-    for player in st.session_state.players:
-        st.session_state.scores[player] = 0
-    st.success("게임이 초기화되었습니다!")
+# 메시지
+if st.session_state.message:
+    st.info(st.session_state.message)
