@@ -1,28 +1,19 @@
 import streamlit as st
 import random
-from PIL import Image
-import os
 import time
 
-# 과일 매핑
-fruit_names = {
-    "딸기": "strawberry.png",
-    "바나나": "banana.png",
-    "자두": "plum.png",
-    "라임": "lime.png"
-}
-
+# 과일 설정 (이모지 및 이름)
 fruit_emojis = {
     "딸기": "🍓",
     "바나나": "🍌",
-    "자두": "🍇",  # 자두는 포도 이모지로 대체
-    "라임": "🍈"   # 라임은 멜론 이모지로 대체
+    "포도": "🍇",
+    "멜론": "🍈"
 }
+fruit_list = list(fruit_emojis.keys())
 
-# 세션 초기화
+# 초기화
 if "cards" not in st.session_state:
-    fruits = list(fruit_names.keys())
-    st.session_state.cards = [(random.choice(fruits), random.randint(1, 5)) for _ in range(40)]
+    st.session_state.cards = [(random.choice(fruit_list), random.randint(1, 5)) for _ in range(40)]
     random.shuffle(st.session_state.cards)
     st.session_state.shown = []
     st.session_state.turn = "player"
@@ -30,7 +21,8 @@ if "cards" not in st.session_state:
     st.session_state.ai_score = 0
     st.session_state.message = ""
 
-st.title("🎮 할리갈리 vs AI (이미지 없는 버전도 OK)")
+st.set_page_config(page_title="할리갈리", layout="centered")
+st.title("🎮 진짜처럼! 할리갈리 vs AI")
 
 # 카드 내기
 def play_card(player):
@@ -62,16 +54,20 @@ def check_bell(player):
             st.session_state.ai_score -= 1
             st.session_state.message = "😅 AI가 실수로 종을 쳤습니다. 점수 -1"
 
-# 사용자 턴
+# 중앙 종 클릭 버튼
+def center_bell_button():
+    st.markdown("### 🔔 가운데 종을 눌러주세요!")
+    if st.button("🔔 종 치기!", use_container_width=True):
+        check_bell("player")
+
+# 플레이어 턴
 if st.session_state.turn == "player":
     st.subheader("🧍 당신의 턴입니다")
     if st.button("🃏 카드 내기"):
         play_card("플레이어")
         st.session_state.turn = "ai"
         time.sleep(0.5)
-
-    if st.button("⏰ 종 치기!"):
-        check_bell("player")
+    center_bell_button()
 
 # AI 턴
 if st.session_state.turn == "ai":
@@ -96,19 +92,15 @@ if st.session_state.turn == "ai":
 
     st.session_state.turn = "player"
 
-# 카드 출력
+# 카드 시각화
 st.markdown("### 📌 최근 카드들:")
 latest = st.session_state.shown[-5:]
 for fruit, count in reversed(latest):
-    path = f"images/{fruit_names[fruit]}"
-    if os.path.exists(path):
-        images = [Image.open(path) for _ in range(count)]
-        st.image(images, width=50)
-    else:
-        emoji = fruit_emojis.get(fruit, "❓")
-        st.write(f"**{fruit} {count}개**  →  {emoji * count}")
+    emoji = fruit_emojis.get(fruit, "❓")
+    st.markdown(f"<h3 style='text-align:center'>{emoji * count}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; font-size:20px'>{fruit} × {count}</div>", unsafe_allow_html=True)
 
-# 점수
+# 점수 표시
 col1, col2 = st.columns(2)
 col1.metric("🧍 당신 점수", st.session_state.player_score)
 col2.metric("🤖 AI 점수", st.session_state.ai_score)
