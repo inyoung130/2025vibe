@@ -1,158 +1,62 @@
 import streamlit as st
-import random
-import time
+import json
+import os
+from datetime import date
 
-# 과일 이모지 매핑
-fruit_emojis = {
-    "딸기": "🍓",
-    "바나나": "🍌",
-    "포도": "🍇",
-    "멜론": "🍈"
-}
-fruit_list = list(fruit_emojis.keys())
+# 파일 경로
+DATA_FILE = "study_plan.json"
 
-# 세션 초기화
-if "cards" not in st.session_state:
-    st.session_state.cards = [(random.choice(fruit_list), random.randint(1, 5)) for _ in range(40)]
-    random.shuffle(st.session_state.cards)
-    st.session_state.player_card = None
-    st.session_state.ai_card = None
-    st.session_state.player_score = 0
-    st.session_state.ai_score = 0
-    st.session_state.ready_for_bell = False
-    st.session_state.message = ""
-    st.session_state.game_over = False
+# 데이터 불러오기
+def load_tasks():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
+            return json.load(f)
+    return []
 
-st.set_page_config(page_title="할리갈리", layout="centered")
-st.title("🎮 할리갈리 vs AI")
+# 데이터 저장하기
+def save_tasks(tasks):
+    with open(DATA_FILE, "w") as f:
+        json.dump(tasks, f, indent=4)
 
-# 게임 종료 체크
-def check_game_end():
-    if st.session_state.player_score >= 5:
-        st.session_state.game_over = True
-        st.session_state.message = "🎉 당신이 이겼습니다!"
-    elif st.session_state.ai_score >= 5:
-        st.session_state.game_over = True
-        st.session_state.message = "🤖 AI가 승리했습니다!"
-    elif st.session_state.player_score <= -5 or st.session_state.ai_score <= -5:
-        st.session_state.game_over = True
-        st.session_state.message = "💥 점수가 -5가 되어 게임이 종료되었습니다!"
+# 초기화
+if "tasks" not in st.session_state:
+    st.session_state.tasks = load_tasks()
 
-# 종 치기 판정
-def check_bell(player):
-    total = {}
-    for who, card in [("플레이어", st.session_state.player_card), ("AI", st.session_state.ai_card)]:
-        if card:
-            fruit, count = card
-            total[fruit] = total.get(fruit, 0) + count
-    found_five = any(v == 5 for v in total.values())
+st.title("📅 스터디 플래너")
 
-    if found_five:
-        if player == "player":
-            st.session_state.player_score += 1
-            st.session_state.message = "✅ 당신이 정답! 점수 +1"
-        else:
-            st.session_state.ai_score += 1
-            st.session_state.message = "🤖 AI가 종을 정확히 쳤습니다! 점수 +1"
-    else:
-        if player == "player":
-            st.session_state.player_score -= 1
-            st.session_state.message = "❌ 당신이 틀렸습니다! 점수 -1"
-        else:
-            st.session_state.ai_score -= 1
-            st.session_state.message = "😅 AI가 실수로 종을 쳤습니다. 점수 -1"
+# 입력 영역
+with st.form("add_task_form"):
+    task = st.text_input("공부할 내용")
+    category = st.selectbox("카테고리", ["수학", "영어", "한국사", "기타"])
+    due = st.date_input("마감일", value=date.today())
+    submitted = st.form_submit_button("추가하기")
 
-    st.session_state.ready_for_bell = False
-    check_game_end()
+    if submitted and task:
+        st.session_state.tasks.append({
+            "task": task,
+            "category": category,
+            "due_date": due.strftime("%Y-%m-%d"),
+            "completed": False
+        })
+        save_tasks(st.session_state.tasks)
+        st.success("✅ 할 일이 추가되었습니다!")
 
-# 카드 & 버튼 UI
-st.markdown("## 🃏 현재 카드")
-cols = st.columns(3)
+st.markdown("## 📋 오늘의 공부 목록")
 
-# 왼쪽: 당신 카드 + 버튼
-with cols[0]:
-    st.markdown("#### 🧍 당신")
-    if st.session_state.player_card:
-        fruit, count = st.session_state.player_card
-        emoji = fruit_emojis[fruit]
-        st.markdown(f"<div style='text-align:center; font-size:32px'>{emoji * count}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div style='text-align:center'>{fruit} × {count}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='text-align:center; font-size:32px;'>❓</div>", unsafe_allow_html=True)
-        st.markdown("<div style='text-align:center'>카드를 내세요</div>", unsafe_allow_html=True)
+# 체크박스 및 삭제 버튼 처리
+for i, t in enumerate(st.session_state.tasks):
+    col1, col2, col3 = st.columns([5, 2, 1])
+    with col1:
+        checked = st.checkbox(f"{t['task']} ({t['category']}) - {t['due_date']}", value=t["completed"], key=f"chk_{i}")
+        st.session_state.tasks[i]["completed"] = checked
+    with col2:
+        if checked:
+            st.success("완료!")
+    with col3:
+        if st.button("❌", key=f"del_{i}"):
+            st.session_state.tasks.pop(i)
+            save_tasks(st.session_state.tasks)
+            st.experimental_rerun()
 
-    if not st.session_state.game_over:
-        if st.button("🃏 카드 내기", key="play_card"):
-            st.session_state.message = ""
-
-            # 플레이어 카드
-            if st.session_state.cards:
-                st.session_state.player_card = st.session_state.cards.pop()
-            else:
-                st.session_state.player_card = None
-
-            # 딜레이 후 AI 카드
-            with st.spinner("🤖 AI가 카드를 고민 중..."):
-                time.sleep(random.uniform(1.2, 2.0))
-
-            if st.session_state.cards:
-                st.session_state.ai_card = st.session_state.cards.pop()
-            else:
-                st.session_state.ai_card = None
-
-            # AI 종 판단
-            total = {}
-            for card in [st.session_state.player_card, st.session_state.ai_card]:
-                if card:
-                    fruit, count = card
-                    total[fruit] = total.get(fruit, 0) + count
-            found_five = any(v == 5 for v in total.values())
-
-            time.sleep(1.0)
-            if found_five and random.random() < 0.8:
-                check_bell("ai")
-            elif not found_five and random.random() < 0.05:
-                check_bell("ai")
-            else:
-                st.session_state.ready_for_bell = True
-
-# 가운데: 종 + 버튼
-with cols[1]:
-    st.markdown("#### 🔔 종 치기")
-    st.markdown("<div style='text-align:center; font-size:48px;'>🔔</div>", unsafe_allow_html=True)
-    if st.button("종 치기!", key="bell", use_container_width=True):
-        if st.session_state.game_over:
-            st.session_state.message = "⛔ 게임이 종료되었습니다."
-        elif st.session_state.ready_for_bell:
-            check_bell("player")
-        else:
-            st.session_state.message = "⛔ 지금은 종을 칠 수 없습니다!"
-
-# 오른쪽: AI 카드
-with cols[2]:
-    st.markdown("#### 🤖 AI")
-    if st.session_state.ai_card:
-        fruit, count = st.session_state.ai_card
-        emoji = fruit_emojis[fruit]
-        st.markdown(f"<div style='text-align:center; font-size:32px'>{emoji * count}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div style='text-align:center'>{fruit} × {count}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='text-align:center; font-size:32px;'>❓</div>", unsafe_allow_html=True)
-        st.markdown("<div style='text-align:center'>대기 중...</div>", unsafe_allow_html=True)
-
-# 점수
-st.markdown("---")
-c1, c2 = st.columns(2)
-c1.metric("🧍 당신 점수", st.session_state.player_score)
-c2.metric("🤖 AI 점수", st.session_state.ai_score)
-
-# 메시지
-if st.session_state.message:
-    st.info(st.session_state.message)
-
-# 종료 이모지
-if st.session_state.game_over:
-    if "이겼습니다" in st.session_state.message:
-        st.markdown("<h1 style='text-align:center;'>🎆🎇🎆</h1>", unsafe_allow_html=True)
-    elif "점수가 -5" in st.session_state.message:
-        st.markdown("<h1 style='text-align:center;'>💣💥💣</h1>", unsafe_allow_html=True)
+# 저장
+save_tasks(st.session_state.tasks)
