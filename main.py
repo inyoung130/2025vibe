@@ -28,17 +28,19 @@ CATEGORIES = ["국어", "수학", "영어", "사회", "과학", "한국사", "�
 # 🖥️ UI 시작
 st.title("📅 스터디 플래너")
 
+# ✅ 카테고리 선택 (폼 밖에서 처리해야 반응함)
+category_choice = st.selectbox("카테고리 선택", CATEGORIES)
+
+# 👉 직접 입력인 경우만 추가 입력창 표시
+if category_choice == "직접 입력":
+    custom_category = st.text_input("카테고리 이름을 입력하세요")
+    category = custom_category.strip() if custom_category else "기타"
+else:
+    category = category_choice
+
 # ✏️ 할 일 추가 폼
 with st.form("add_task_form"):
     task = st.text_input("공부할 내용")
-    category_choice = st.selectbox("카테고리 선택", CATEGORIES)
-
-    if category_choice == "직접 입력":
-        custom_category = st.text_input("카테고리 이름 입력")
-        category = custom_category.strip() if custom_category else "기타"
-    else:
-        category = category_choice
-
     due = st.date_input("마감일", value=date.today())
     submitted = st.form_submit_button("추가하기")
 
