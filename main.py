@@ -1,10 +1,10 @@
 import streamlit as st
 import random
 import datetime
-import matplotlib.pyplot as plt
+import pandas as pd
 
 # ----------------------------
-# 1. 다이어트 식단 데이터
+# 1. 저칼로리 다이어트 메뉴
 # ----------------------------
 diet_menu = {
     "닭가슴살 샐러드": 250,
@@ -34,7 +34,7 @@ if "recent_menu" not in st.session_state:
     st.session_state.recent_menu = []
 
 # ----------------------------
-# 3. 제목 및 체중 입력
+# 3. 체중 입력 및 저장
 # ----------------------------
 st.title("🏋️‍♀️ 다이어트 트래커 & 점심 추천기")
 
@@ -47,23 +47,16 @@ if st.button("📌 체중 기록 저장"):
     st.success(f"{today} 체중 {weight}kg 기록됨")
 
 # ----------------------------
-# 4. 체중 변화 시각화
+# 4. 체중 변화 그래프 (streamlit 내장 차트)
 # ----------------------------
 if len(st.session_state.weights) >= 2:
     st.subheader("📊 체중 변화 추이")
-    dates = [entry[0] for entry in st.session_state.weights]
-    values = [entry[1] for entry in st.session_state.weights]
+    df = pd.DataFrame(st.session_state.weights, columns=["날짜", "체중"]).set_index("날짜")
+    st.line_chart(df)
 
-    fig, ax = plt.subplots()
-    ax.plot(dates, values, marker='o', linestyle='-')
-    ax.set_ylabel("체중 (kg)")
-    ax.set_xlabel("날짜")
-    ax.set_title("체중 변화 그래프")
-    ax.grid(True)
-    st.pyplot(fig)
-
-    # 변화량 표시
-    delta = values[-1] - values[-2]
+    # 변화량 메시지
+    before, after = df["체중"].iloc[-2], df["체중"].iloc[-1]
+    delta = after - before
     if delta > 0:
         st.warning(f"📈 체중이 +{delta:.1f}kg 증가했어요!")
     elif delta < 0:
@@ -95,7 +88,7 @@ if st.button("🎲 메뉴 추천"):
         st.session_state.recent_menu.pop(0)
 
 # ----------------------------
-# 6. 이전 추천/체중 보기
+# 6. 기록 보기
 # ----------------------------
 with st.expander("📜 체중 기록 전체 보기"):
     if st.session_state.weights:
