@@ -1,58 +1,36 @@
 import streamlit as st
-from PIL import Image
-import time
-import os
+from PIL import Image, ImageDraw
 
-st.set_page_config(page_title="시향이 때리기", layout="centered")
+st.set_page_config(page_title="시향이 화장해주기", layout="centered")
 
-# 기본 상태 초기화
-if 'score' not in st.session_state:
-    st.session_state.score = 0
-if 'start_time' not in st.session_state:
-    st.session_state.start_time = None
-if 'game_over' not in st.session_state:
-    st.session_state.game_over = False
-if 'is_hit' not in st.session_state:
-    st.session_state.is_hit = False
+st.title("💄 시향이 화장해주기 게임")
 
-# 게임 설정
-GAME_DURATION = 30  # seconds
+# 기본 이미지 불러오기
+base_image = Image.open("sihyang_base.png")  # 화장 전 시향이 얼굴
+draw = ImageDraw.Draw(base_image)
 
-# 이미지 로딩
-normal_img = Image.open("shihyang_normal.png")
-hit_img = Image.open("shihyang_hit.png")
+# 화장 옵션
+st.subheader("1. 립스틱 색상을 골라줘!")
+lip_color = st.color_picker("립스틱", "#FF5E78")
 
-st.title("💢 시향이 때리기 게임")
-st.write("30초 안에 최대한 많이 시향이를 때려보세요!")
+st.subheader("2. 볼터치 색상을 골라줘!")
+cheek_color = st.color_picker("볼터치", "#FFA07A")
 
-# 게임 시작 버튼
-if st.button("게임 시작", type="primary"):
-    st.session_state.score = 0
-    st.session_state.start_time = time.time()
-    st.session_state.game_over = False
+st.subheader("3. 아이섀도우 색상을 골라줘!")
+eye_color = st.color_picker("아이섀도우", "#9370DB")
 
-# 게임 로직
-if st.session_state.start_time and not st.session_state.game_over:
-    elapsed = time.time() - st.session_state.start_time
-    remaining = GAME_DURATION - int(elapsed)
-    
-    st.markdown(f"⏱️ 남은 시간: **{remaining}초**")
-    st.markdown(f"👊 점수: **{st.session_state.score}점**")
+if st.button("✨ 화장 완료! 시향이 보여줘"):
+    # 간단한 얼굴 좌표에 색상 그리기 (예시 좌표)
+    # 실제 이미지에 맞춰 조정 필요!
+    draw.ellipse((130, 220, 170, 260), fill=cheek_color)  # 왼쪽 볼터치
+    draw.ellipse((230, 220, 270, 260), fill=cheek_color)  # 오른쪽 볼터치
 
-    if remaining <= 0:
-        st.session_state.game_over = True
-        st.session_state.start_time = None
-    else:
-        # 이미지 클릭 시 점수 증가
-        clicked = st.button("👉 시향이 때리기")
-        if clicked:
-            st.session_state.score += 1
-            st.session_state.is_hit = True
-        else:
-            st.session_state.is_hit = False
+    draw.rectangle((180, 300, 220, 310), fill=lip_color)  # 립스틱 (입술)
 
-        st.image(hit_img if st.session_state.is_hit else normal_img, width=300)
+    draw.rectangle((150, 150, 180, 160), fill=eye_color)  # 왼쪽 아이섀도우
+    draw.rectangle((220, 150, 250, 160), fill=eye_color)  # 오른쪽 아이섀도우
 
-# 게임 종료
-if st.session_state.game_over:
-    st.markdown(f"🎉 게임 종료! 당신의 점수는 **{st.session_state.score}점**입니다.")
+    st.image(base_image, caption="화장한 시향이 💖", use_column_width=True)
+
+st.markdown("---")
+st.button("🔁 다시 화장하기", on_click=st.experimental_rerun)
