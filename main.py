@@ -1,2 +1,2 @@
 import streamlit as st
-st.title('임시향바보')
+st.title('공주인영')
