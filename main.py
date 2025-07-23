@@ -1,7 +1,11 @@
 import streamlit as st
 import random
+import datetime
+import matplotlib.pyplot as plt
 
-# 저칼로리 다이어트 메뉴 데이터 (메뉴명: 칼로리)
+# ----------------------------
+# 1. 다이어트 식단 데이터
+# ----------------------------
 diet_menu = {
     "닭가슴살 샐러드": 250,
     "연어 샐러드": 300,
@@ -20,53 +24,85 @@ diet_menu = {
     "해초 샐러드": 180
 }
 
-# 세션 상태로 최근 추천 저장
-if "recent" not in st.session_state:
-    st.session_state.recent = []
+# ----------------------------
+# 2. 세션 상태 초기화
+# ----------------------------
+if "weights" not in st.session_state:
+    st.session_state.weights = []  # [(날짜, 체중)]
 
-st.title("🥗 다이어트 점심 메뉴 추천기")
+if "recent_menu" not in st.session_state:
+    st.session_state.recent_menu = []
 
-st.markdown("🔍 **저칼로리 건강식**만 골라서 추천해드립니다!")
+# ----------------------------
+# 3. 제목 및 체중 입력
+# ----------------------------
+st.title("🏋️‍♀️ 다이어트 트래커 & 점심 추천기")
 
-# 칼로리 제한 슬라이더
-max_kcal = st.slider("🔥 최대 칼로리 한도 (kcal)", min_value=150, max_value=500, value=350)
+st.header("📉 체중 입력")
+weight = st.number_input("현재 체중을 입력하세요 (kg)", min_value=30.0, max_value=200.0, step=0.1)
 
-# 추천 버튼
-if st.button("🎲 추천 받기"):
-    # 칼로리 필터링
-    candidates = [(menu, kcal) for menu, kcal in diet_menu.items() if kcal <= max_kcal]
+if st.button("📌 체중 기록 저장"):
+    today = datetime.date.today().isoformat()
+    st.session_state.weights.append((today, weight))
+    st.success(f"{today} 체중 {weight}kg 기록됨")
 
-    # 최근 추천 제외
-    available = [(menu, kcal) for menu, kcal in candidates if menu not in st.session_state.recent]
+# ----------------------------
+# 4. 체중 변화 시각화
+# ----------------------------
+if len(st.session_state.weights) >= 2:
+    st.subheader("📊 체중 변화 추이")
+    dates = [entry[0] for entry in st.session_state.weights]
+    values = [entry[1] for entry in st.session_state.weights]
+
+    fig, ax = plt.subplots()
+    ax.plot(dates, values, marker='o', linestyle='-')
+    ax.set_ylabel("체중 (kg)")
+    ax.set_xlabel("날짜")
+    ax.set_title("체중 변화 그래프")
+    ax.grid(True)
+    st.pyplot(fig)
+
+    # 변화량 표시
+    delta = values[-1] - values[-2]
+    if delta > 0:
+        st.warning(f"📈 체중이 +{delta:.1f}kg 증가했어요!")
+    elif delta < 0:
+        st.success(f"📉 체중이 {abs(delta):.1f}kg 감량됐어요!")
+    else:
+        st.info("체중 변화가 없어요.")
+
+# ----------------------------
+# 5. 다이어트 점심 추천
+# ----------------------------
+st.markdown("---")
+st.header("🥗 오늘의 저칼로리 점심 추천")
+
+max_kcal = st.slider("칼로리 제한", min_value=150, max_value=500, value=350)
+
+if st.button("🎲 메뉴 추천"):
+    candidates = [(m, k) for m, k in diet_menu.items() if k <= max_kcal]
+    available = [(m, k) for (m, k) in candidates if m not in st.session_state.recent_menu]
 
     if not available:
-        st.warning("추천 가능한 메뉴가 없어요. 최근 추천 내역을 초기화할게요.")
-        st.session_state.recent = []
+        st.warning("추천 가능한 메뉴가 없어요. 최근 추천 내역 초기화됨.")
+        st.session_state.recent_menu = []
         available = candidates
 
-    selected_menu, selected_kcal = random.choice(available)
-    st.success(f"✅ 오늘의 추천: **{selected_menu}** ({selected_kcal} kcal)")
+    menu, kcal = random.choice(available)
+    st.success(f"✅ 추천 메뉴: **{menu}** ({kcal} kcal)")
+    st.session_state.recent_menu.append(menu)
+    if len(st.session_state.recent_menu) > 5:
+        st.session_state.recent_menu.pop(0)
 
-    # 최근 추천 저장
-    st.session_state.recent.append(selected_menu)
-    if len(st.session_state.recent) > 5:
-        st.session_state.recent.pop(0)
+# ----------------------------
+# 6. 이전 추천/체중 보기
+# ----------------------------
+with st.expander("📜 체중 기록 전체 보기"):
+    if st.session_state.weights:
+        for date, wt in st.session_state.weights:
+            st.write(f"{date}: {wt}kg")
+    else:
+        st.write("아직 기록된 체중이 없어요.")
 
-# 최근 추천 메뉴 보기
-if st.checkbox("📜 최근 추천 보기"):
-    st.write(st.session_state.recent)
-
-# 사용자 메뉴 추가
-st.markdown("---")
-st.subheader("➕ 직접 메뉴 추가하기 (예: 참치샐러드:280)")
-user_input = st.text_input("입력", placeholder="메뉴명:칼로리")
-
-if user_input:
-    try:
-        name, kcal = user_input.split(":")
-        name = name.strip()
-        kcal = int(kcal.strip())
-        diet_menu[name] = kcal
-        st.success(f"'{name}' 메뉴가 추가되었습니다!")
-    except:
-        st.error("형식이 올바르지 않습니다. 예: 참치샐러드:280")
+with st.expander("🍴 최근 추천 메뉴 보기"):
+    st.write(st.session_state.recent_menu if st.session_state.recent_menu else "없음")
