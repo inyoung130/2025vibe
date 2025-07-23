@@ -2,7 +2,7 @@ import streamlit as st
 import random
 import time
 
-# 과일 설정 (이모지 및 이름)
+# 과일 설정
 fruit_emojis = {
     "딸기": "🍓",
     "바나나": "🍌",
@@ -15,28 +15,28 @@ fruit_list = list(fruit_emojis.keys())
 if "cards" not in st.session_state:
     st.session_state.cards = [(random.choice(fruit_list), random.randint(1, 5)) for _ in range(40)]
     random.shuffle(st.session_state.cards)
-    st.session_state.shown = []
+    st.session_state.shown = []  # (과일, 개수, 낸 사람) 튜플 저장
     st.session_state.turn = "player"
     st.session_state.player_score = 0
     st.session_state.ai_score = 0
     st.session_state.message = ""
 
 st.set_page_config(page_title="할리갈리", layout="centered")
-st.title("🎮 진짜처럼! 할리갈리 vs AI")
+st.title("🎮 할리갈리 vs AI")
 
 # 카드 내기
-def play_card(player):
+def play_card(player_label):
     if st.session_state.cards:
         card = st.session_state.cards.pop()
-        st.session_state.shown.append(card)
-        st.session_state.message = f"{player}가 카드를 냈습니다: {card[0]} {card[1]}개"
+        st.session_state.shown.append((card[0], card[1], player_label))
+        st.session_state.message = f"{player_label}가 카드를 냈습니다: {card[0]} {card[1]}개"
     else:
         st.session_state.message = "📦 카드가 모두 소진되었습니다!"
 
 # 종 치기
 def check_bell(player):
     counter = {}
-    for fruit, count in st.session_state.shown:
+    for fruit, count, _ in st.session_state.shown:
         counter[fruit] = counter.get(fruit, 0) + count
     correct = any(c == 5 for c in counter.values())
     if correct:
@@ -54,7 +54,7 @@ def check_bell(player):
             st.session_state.ai_score -= 1
             st.session_state.message = "😅 AI가 실수로 종을 쳤습니다. 점수 -1"
 
-# 중앙 종 클릭 버튼
+# 가운데 종 버튼
 def center_bell_button():
     st.markdown("### 🔔 가운데 종을 눌러주세요!")
     if st.button("🔔 종 치기!", use_container_width=True):
@@ -76,35 +76,52 @@ if st.session_state.turn == "ai":
     play_card("AI")
 
     counter = {}
-    for fruit, count in st.session_state.shown:
+    for fruit, count, _ in st.session_state.shown:
         counter[fruit] = counter.get(fruit, 0) + count
     found_five = any(c == 5 for c in counter.values())
 
     time.sleep(1.5)
     ai_reacts = False
     if found_five:
-        ai_reacts = random.random() < 0.8  # 80% 확률로 종침
+        ai_reacts = random.random() < 0.8
     else:
-        ai_reacts = random.random() < 0.1  # 10% 확률로 실수
+        ai_reacts = random.random() < 0.1
 
     if ai_reacts:
         check_bell("ai")
 
     st.session_state.turn = "player"
 
-# 카드 시각화
-st.markdown("### 📌 최근 카드들:")
-latest = st.session_state.shown[-5:]
-for fruit, count in reversed(latest):
+# 최근 카드 각각 표시
+st.markdown("## 🃏 현재 카드 상태")
+
+# 플레이어 카드
+player_card = next((card for card in reversed(st.session_state.shown) if card[2] == "플레이어"), None)
+if player_card:
+    fruit, count, _ = player_card
     emoji = fruit_emojis.get(fruit, "❓")
+    st.markdown("#### 🧍 당신이 낸 카드")
     st.markdown(f"<h3 style='text-align:center'>{emoji * count}</h3>", unsafe_allow_html=True)
     st.markdown(f"<div style='text-align:center; font-size:20px'>{fruit} × {count}</div>", unsafe_allow_html=True)
+else:
+    st.info("당신이 낸 카드는 아직 없습니다.")
 
-# 점수 표시
+# AI 카드
+ai_card = next((card for card in reversed(st.session_state.shown) if card[2] == "AI"), None)
+if ai_card:
+    fruit, count, _ = ai_card
+    emoji = fruit_emojis.get(fruit, "❓")
+    st.markdown("#### 🤖 AI가 낸 카드")
+    st.markdown(f"<h3 style='text-align:center'>{emoji * count}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; font-size:20px'>{fruit} × {count}</div>", unsafe_allow_html=True)
+else:
+    st.info("AI가 낸 카드는 아직 없습니다.")
+
+# 점수
 col1, col2 = st.columns(2)
 col1.metric("🧍 당신 점수", st.session_state.player_score)
 col2.metric("🤖 AI 점수", st.session_state.ai_score)
 
-# 메시지 출력
+# 메시지
 if st.session_state.message:
     st.info(st.session_state.message)
