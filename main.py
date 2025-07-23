@@ -1,36 +1,30 @@
 import streamlit as st
-from PIL import Image, ImageDraw
-
-st.set_page_config(page_title="시향이 화장해주기", layout="centered")
+from PIL import Image
 
 st.title("💄 시향이 화장해주기 게임")
 
 # 기본 이미지 불러오기
-base_image = Image.open("sihyang_base.png")  # 화장 전 시향이 얼굴
-draw = ImageDraw.Draw(base_image)
+base = Image.open("images/face_base.png")
 
-# 화장 옵션
-st.subheader("1. 립스틱 색상을 골라줘!")
-lip_color = st.color_picker("립스틱", "#FF5E78")
+# 사용자 선택 UI
+st.sidebar.header("💋 화장 선택")
+eyebrow_option = st.sidebar.selectbox("눈썹", ["없음", "눈썹1", "눈썹2"])
+lip_option = st.sidebar.selectbox("입술", ["없음", "립1", "립2"])
+shadow_option = st.sidebar.selectbox("아이섀도우", ["없음", "섀도우1", "섀도우2"])
+blush_option = st.sidebar.selectbox("볼터치", ["없음", "블러셔1", "블러셔2"])
 
-st.subheader("2. 볼터치 색상을 골라줘!")
-cheek_color = st.color_picker("볼터치", "#FFA07A")
+# 선택된 이미지 합성
+final = base.copy()
 
-st.subheader("3. 아이섀도우 색상을 골라줘!")
-eye_color = st.color_picker("아이섀도우", "#9370DB")
+def add_layer(option, path_prefix):
+    if option != "없음":
+        layer = Image.open(f"images/{path_prefix}_{option[-1]}.png")
+        final.paste(layer, (0, 0), layer)
 
-if st.button("✨ 화장 완료! 시향이 보여줘"):
-    # 간단한 얼굴 좌표에 색상 그리기 (예시 좌표)
-    # 실제 이미지에 맞춰 조정 필요!
-    draw.ellipse((130, 220, 170, 260), fill=cheek_color)  # 왼쪽 볼터치
-    draw.ellipse((230, 220, 270, 260), fill=cheek_color)  # 오른쪽 볼터치
+add_layer(eyebrow_option, "eyebrow")
+add_layer(lip_option, "lip")
+add_layer(shadow_option, "shadow")
+add_layer(blush_option, "blush")
 
-    draw.rectangle((180, 300, 220, 310), fill=lip_color)  # 립스틱 (입술)
-
-    draw.rectangle((150, 150, 180, 160), fill=eye_color)  # 왼쪽 아이섀도우
-    draw.rectangle((220, 150, 250, 160), fill=eye_color)  # 오른쪽 아이섀도우
-
-    st.image(base_image, caption="화장한 시향이 💖", use_column_width=True)
-
-st.markdown("---")
-st.button("🔁 다시 화장하기", on_click=st.experimental_rerun)
+# 결과 보여주기
+st.image(final, caption="시향이 완성된 화장", use_column_width=True)
