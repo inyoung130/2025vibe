@@ -1,132 +1,89 @@
 import streamlit as st
 import random
-import datetime
-import pandas as pd
 
-# ----------------------------
-# 초기 세션 상태 설정
-# ----------------------------
-if "weights" not in st.session_state:
-    st.session_state.weights = []
+st.set_page_config(page_title="할리갈리 게임", layout="centered")
 
-if "recent_menu" not in st.session_state:
-    st.session_state.recent_menu = []
+st.title("🍓 할리갈리 게임 🎲")
+st.markdown("과일이 정확히 5개일 때 종을 누르세요!")
 
-if "water_log" not in st.session_state:
-    st.session_state.water_log = {}
+# 초기 세팅
+if "players" not in st.session_state:
+    st.session_state.players = []
+if "cards" not in st.session_state:
+    st.session_state.cards = []
+if "fruit_types" not in st.session_state:
+    st.session_state.fruit_types = ["🍓", "🍌", "🍇", "🍊"]
+if "bell_pressed" not in st.session_state:
+    st.session_state.bell_pressed = None
+if "scores" not in st.session_state:
+    st.session_state.scores = {}
 
-# ----------------------------
-# 기본 정보
-# ----------------------------
-today = datetime.date.today().isoformat()
-water_goal = 2000  # 일일 목표 2000ml
+# 플레이어 등록
+with st.form("player_form"):
+    player_input = st.text_input("플레이어 이름 입력")
+    submit = st.form_submit_button("추가하기")
+    if submit and player_input:
+        if player_input not in st.session_state.players:
+            st.session_state.players.append(player_input)
+            st.session_state.scores[player_input] = 0
 
-if today not in st.session_state.water_log:
-    st.session_state.water_log[today] = 0
+# 플레이어 목록 표시
+if st.session_state.players:
+    st.markdown("### 참가자")
+    st.write(", ".join(st.session_state.players))
+else:
+    st.warning("플레이어를 추가해주세요.")
 
-# ----------------------------
-# UI 시작
-# ----------------------------
-st.title("🏋️‍♀️ 다이어트 & 물컵 트래커")
+# 카드 뽑기
+st.divider()
+st.subheader("🃏 카드 뽑기")
 
-# ----------------------------
-# 물컵 기능
-# ----------------------------
-st.header("💧 오늘의 물컵 채우기")
+cols = st.columns(len(st.session_state.players))
+for idx, player in enumerate(st.session_state.players):
+    with cols[idx]:
+        if st.button(f"{player} 카드 내기", key=f"card_{player}"):
+            fruit = random.choice(st.session_state.fruit_types)
+            count = random.randint(1, 5)
+            st.session_state.cards.append((player, fruit, count))
+            st.session_state.bell_pressed = None  # 초기화
 
-# 현재 섭취량 표시
-current_ml = st.session_state.water_log[today]
-filled_cups = current_ml // 100
-total_cups = water_goal // 100
+# 카드 보여주기
+if st.session_state.cards:
+    st.markdown("### 현재 카드 상태")
+    for player, fruit, count in st.session_state.cards:
+        st.write(f"{player}: {fruit} x {count}")
 
-# 시각적 물컵 표시 (🥤: 채운 컵 / ⚪: 빈 컵)
-cup_display = " ".join(["🥤"] * filled_cups + ["⚪"] * (total_cups - filled_cups))
-st.markdown(f"### {cup_display}")
-st.write(f"총 섭취량: **{current_ml}ml / {water_goal}ml**")
+# 종 누르기
+st.divider()
+st.subheader("🔔 종 누르기")
 
-# 버튼 클릭 시 100ml 추가
-if st.button("💦 100ml 마시기"):
-    if current_ml < water_goal:
-        st.session_state.water_log[today] += 100
-        st.rerun()  # UI 즉시 업데이트
-    else:
-        st.info("오늘 목표를 이미 달성했어요!")
+for player in st.session_state.players:
+    if st.button(f"{player} 종 누르기", key=f"bell_{player}"):
+        if not st.session_state.bell_pressed:
+            st.session_state.bell_pressed = player
+            # 현재 카드의 과일 개수 총합 계산
+            fruit_counter = {}
+            for _, fruit, count in st.session_state.cards:
+                fruit_counter[fruit] = fruit_counter.get(fruit, 0) + count
+            if any(count == 5 for count in fruit_counter.values()):
+                st.success(f"{player} 정답! 점수 +1")
+                st.session_state.scores[player] += 1
+            else:
+                st.error(f"{player} 오답! 점수 -1")
+                st.session_state.scores[player] -= 1
+            # 카드 초기화
+            st.session_state.cards = []
 
-# ----------------------------
-# 물 섭취 기록 그래프
-# ----------------------------
-if st.session_state.water_log:
-    st.subheader("📈 일별 물 섭취량")
-    water_df = pd.DataFrame(
-        list(st.session_state.water_log.items()),
-        columns=["날짜", "섭취량(ml)"]
-    ).set_index("날짜")
-    st.bar_chart(water_df)
+# 점수판
+st.divider()
+st.subheader("📊 점수판")
+for player in st.session_state.players:
+    st.write(f"{player}: {st.session_state.scores[player]}점")
 
-# ----------------------------
-# 점심 추천 기능
-# ----------------------------
-st.markdown("---")
-st.header("🥗 오늘의 저칼로리 점심 추천")
-
-diet_menu = {
-    "닭가슴살 샐러드": 250,
-    "연어 샐러드": 300,
-    "두부 샐러드": 280,
-    "현미밥 + 야채볶음": 400,
-    "오트밀 + 과일": 350,
-    "곤약면 샐러드": 200,
-    "계란 흰자 오믈렛": 220,
-    "채소 스무디": 180,
-    "닭가슴살 스테이크": 320,
-    "저지방 요거트 + 견과류": 300,
-    "토마토 달걀볶음": 270,
-    "브로콜리 + 닭가슴살": 290,
-    "그릭요거트 + 베리": 250,
-    "계란 + 아보카도 샐러드": 310,
-    "해초 샐러드": 180
-}
-
-max_kcal = st.slider("칼로리 제한", min_value=150, max_value=500, value=350)
-
-if st.button("🎲 메뉴 추천"):
-    candidates = [(m, k) for m, k in diet_menu.items() if k <= max_kcal]
-    available = [(m, k) for (m, k) in candidates if m not in st.session_state.recent_menu]
-
-    if not available:
-        st.warning("추천 가능한 메뉴가 없어요. 최근 추천 초기화됨.")
-        st.session_state.recent_menu = []
-        available = candidates
-
-    menu, kcal = random.choice(available)
-    st.success(f"✅ 추천 메뉴: **{menu}** ({kcal} kcal)")
-    st.session_state.recent_menu.append(menu)
-    if len(st.session_state.recent_menu) > 5:
-        st.session_state.recent_menu.pop(0)
-
-# ----------------------------
-# 체중 기록 기능 (간단히 표시)
-# ----------------------------
-st.markdown("---")
-st.header("📉 체중 기록 (요약)")
-
-weight = st.number_input("현재 체중 입력 (kg)", min_value=30.0, max_value=200.0, step=0.1)
-
-if st.button("📌 체중 저장"):
-    st.session_state.weights.append((today, weight))
-    st.success(f"{today} 체중 {weight}kg 기록됨")
-
-if len(st.session_state.weights) >= 2:
-    df = pd.DataFrame(st.session_state.weights, columns=["날짜", "체중"]).set_index("날짜")
-    st.line_chart(df)
-
-# ----------------------------
-# 기록 보기
-# ----------------------------
-with st.expander("💧 전체 물 섭취 기록 보기"):
-    for date, ml in st.session_state.water_log.items():
-        st.write(f"{date}: {ml}ml")
-
-with st.expander("📜 체중 기록 보기"):
-    for date, wt in st.session_state.weights:
-        st.write(f"{date}: {wt}kg")
+# 리셋 버튼
+if st.button("🔄 게임 리셋"):
+    st.session_state.cards = []
+    st.session_state.bell_pressed = None
+    for player in st.session_state.players:
+        st.session_state.scores[player] = 0
+    st.success("게임이 초기화되었습니다!")
