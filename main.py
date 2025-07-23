@@ -1,71 +1,58 @@
-import { useState, useEffect } from "react";
+import streamlit as st
+from PIL import Image
+import time
+import os
 
-export default function ShihyangGame() {
-  const [score, setScore] = useState(0);
-  const [isHit, setIsHit] = useState(false);
-  const [timer, setTimer] = useState(30);
-  const [gameStarted, setGameStarted] = useState(false);
+st.set_page_config(page_title="시향이 때리기", layout="centered")
 
-  useEffect(() => {
-    let countdown;
-    if (gameStarted && timer > 0) {
-      countdown = setInterval(() => {
-        setTimer((prev) => prev - 1);
-      }, 1000);
-    } else if (timer === 0) {
-      clearInterval(countdown);
-    }
-    return () => clearInterval(countdown);
-  }, [gameStarted, timer]);
+# 기본 상태 초기화
+if 'score' not in st.session_state:
+    st.session_state.score = 0
+if 'start_time' not in st.session_state:
+    st.session_state.start_time = None
+if 'game_over' not in st.session_state:
+    st.session_state.game_over = False
+if 'is_hit' not in st.session_state:
+    st.session_state.is_hit = False
 
-  const handleStart = () => {
-    setScore(0);
-    setTimer(30);
-    setGameStarted(true);
-  };
+# 게임 설정
+GAME_DURATION = 30  # seconds
 
-  const handleHit = () => {
-    if (gameStarted && timer > 0) {
-      setScore((prev) => prev + 1);
-      setIsHit(true);
-      setTimeout(() => setIsHit(false), 150);
-    }
-  };
+# 이미지 로딩
+normal_img = Image.open("shihyang_normal.png")
+hit_img = Image.open("shihyang_hit.png")
 
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-pink-100 text-center">
-      <h1 className="text-4xl font-bold mb-4">💢 시향이 때리기 게임</h1>
-      <p className="text-lg mb-2">30초 안에 얼마나 많이 때릴 수 있을까요?</p>
+st.title("💢 시향이 때리기 게임")
+st.write("30초 안에 최대한 많이 시향이를 때려보세요!")
 
-      {!gameStarted && (
-        <button
-          onClick={handleStart}
-          className="px-6 py-2 bg-red-500 text-white rounded-lg text-lg hover:bg-red-600"
-        >
-          게임 시작
-        </button>
-      )}
+# 게임 시작 버튼
+if st.button("게임 시작", type="primary"):
+    st.session_state.score = 0
+    st.session_state.start_time = time.time()
+    st.session_state.game_over = False
 
-      {gameStarted && (
-        <>
-          <div className="my-4 text-xl">⏱️ 남은 시간: {timer}s</div>
-          <div className="my-4 text-xl">👊 점수: {score}</div>
-          <img
-            src={isHit ? "/shihyang_hit.png" : "/shihyang_normal.png"}
-            alt="시향이"
-            className={`w-60 h-60 cursor-pointer transition-transform duration-100 ${
-              isHit ? "scale-95 rotate-2" : ""
-            }`}
-            onClick={handleHit}
-          />
-        </>
-      )}
+# 게임 로직
+if st.session_state.start_time and not st.session_state.game_over:
+    elapsed = time.time() - st.session_state.start_time
+    remaining = GAME_DURATION - int(elapsed)
+    
+    st.markdown(f"⏱️ 남은 시간: **{remaining}초**")
+    st.markdown(f"👊 점수: **{st.session_state.score}점**")
 
-      {gameStarted && timer === 0 && (
-        <div className="mt-6 text-2xl text-green-700 font-bold">
-          🎉 게임 종료! 당신의 점수는 {score}점입니다.
-        </div>
-      )}
-    </div>
-  );
-}
+    if remaining <= 0:
+        st.session_state.game_over = True
+        st.session_state.start_time = None
+    else:
+        # 이미지 클릭 시 점수 증가
+        clicked = st.button("👉 시향이 때리기")
+        if clicked:
+            st.session_state.score += 1
+            st.session_state.is_hit = True
+        else:
+            st.session_state.is_hit = False
+
+        st.image(hit_img if st.session_state.is_hit else normal_img, width=300)
+
+# 게임 종료
+if st.session_state.game_over:
+    st.markdown(f"🎉 게임 종료! 당신의 점수는 **{st.session_state.score}점**입니다.")
