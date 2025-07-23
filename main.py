@@ -1,114 +1,72 @@
 import streamlit as st
 import random
-from collections import defaultdict
-from PIL import Image
-import torch
-import torchvision.transforms as transforms
-from torchvision import models
 
-# ------------------ 기본 설정 ------------------ #
-st.set_page_config(page_title="점심메뉴 추천기", page_icon="🍱", layout="centered")
-
-# 메뉴 데이터
-default_menus = {
-    "한식": ["김치찌개", "비빔밥", "제육볶음", "된장찌개", "불고기"],
-    "중식": ["짜장면", "짬뽕", "탕수육", "마라탕", "볶음밥"],
-    "일식": ["스시", "우동", "라멘", "가츠동", "돈부리"],
-    "양식": ["파스타", "스테이크", "피자", "햄버거", "샐러드"]
+# 저칼로리 다이어트 메뉴 데이터 (메뉴명: 칼로리)
+diet_menu = {
+    "닭가슴살 샐러드": 250,
+    "연어 샐러드": 300,
+    "두부 샐러드": 280,
+    "현미밥 + 야채볶음": 400,
+    "오트밀 + 과일": 350,
+    "곤약면 샐러드": 200,
+    "계란 흰자 오믈렛": 220,
+    "채소 스무디": 180,
+    "닭가슴살 스테이크": 320,
+    "저지방 요거트 + 견과류": 300,
+    "토마토 달걀볶음": 270,
+    "브로콜리 + 닭가슴살": 290,
+    "그릭요거트 + 베리": 250,
+    "계란 + 아보카도 샐러드": 310,
+    "해초 샐러드": 180
 }
 
-if "menus" not in st.session_state:
-    st.session_state.menus = default_menus.copy()
-if "votes" not in st.session_state:
-    st.session_state.votes = defaultdict(int)
-if "history" not in st.session_state:
-    st.session_state.history = []
+# 세션 상태로 최근 추천 저장
+if "recent" not in st.session_state:
+    st.session_state.recent = []
 
-# ------------------ 이미지 분류 모델 ------------------ #
-@st.cache_resource
-def load_model():
-    model = models.resnet18(pretrained=True)
-    model.eval()
-    return model
+st.title("🥗 다이어트 점심 메뉴 추천기")
 
-@st.cache_resource
-def load_labels():
-    # ImageNet 클래스 라벨 불러오기
-    import urllib
-    labels_url = "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt"
-    response = urllib.request.urlopen(labels_url)
-    labels = [line.decode("utf-8").strip() for line in response.readlines()]
-    return labels
+st.markdown("🔍 **저칼로리 건강식**만 골라서 추천해드립니다!")
 
-def predict_food(image):
-    model = load_model()
-    labels = load_labels()
+# 칼로리 제한 슬라이더
+max_kcal = st.slider("🔥 최대 칼로리 한도 (kcal)", min_value=150, max_value=500, value=350)
 
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
-    ])
+# 추천 버튼
+if st.button("🎲 추천 받기"):
+    # 칼로리 필터링
+    candidates = [(menu, kcal) for menu, kcal in diet_menu.items() if kcal <= max_kcal]
 
-    img = transform(image).unsqueeze(0)
-    with torch.no_grad():
-        outputs = model(img)
-        _, predicted = outputs.max(1)
-        return labels[predicted.item()]
+    # 최근 추천 제외
+    available = [(menu, kcal) for menu, kcal in candidates if menu not in st.session_state.recent]
 
-# ------------------ UI ------------------ #
-st.title("🍽️ 오늘 뭐 먹지?")
+    if not available:
+        st.warning("추천 가능한 메뉴가 없어요. 최근 추천 내역을 초기화할게요.")
+        st.session_state.recent = []
+        available = candidates
 
-# ------------------ 이미지 기반 추천 ------------------ #
-with st.expander("📷 사진으로 메뉴 추천받기"):
-    uploaded_image = st.file_uploader("메뉴 사진을 업로드하세요", type=["jpg", "jpeg", "png"])
-    if uploaded_image:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="업로드한 이미지", use_column_width=True)
+    selected_menu, selected_kcal = random.choice(available)
+    st.success(f"✅ 오늘의 추천: **{selected_menu}** ({selected_kcal} kcal)")
 
-        with st.spinner("이미지 분석 중..."):
-            predicted_label = predict_food(image)
-            st.success(f"AI가 분석한 결과: **{predicted_label}**")
+    # 최근 추천 저장
+    st.session_state.recent.append(selected_menu)
+    if len(st.session_state.recent) > 5:
+        st.session_state.recent.pop(0)
 
-            # 간단한 매핑 예시
-            food_map = {
-                "pizza": "피자",
-                "bibimbap": "비빔밥",
-                "ramen": "라멘",
-                "sushi": "스시",
-                "steak": "스테이크",
-                "kimchi": "김치찌개",
-                "hamburger": "햄버거"
-            }
+# 최근 추천 메뉴 보기
+if st.checkbox("📜 최근 추천 보기"):
+    st.write(st.session_state.recent)
 
-            for keyword, menu in food_map.items():
-                if keyword in predicted_label.lower():
-                    st.info(f"👉 추천 메뉴: **{menu}**")
-                    break
-            else:
-                st.warning("⚠️ 해당 음식은 목록에 없어요. 직접 추가해보세요!")
+# 사용자 메뉴 추가
+st.markdown("---")
+st.subheader("➕ 직접 메뉴 추가하기 (예: 참치샐러드:280)")
+user_input = st.text_input("입력", placeholder="메뉴명:칼로리")
 
-# ------------------ 카테고리 선택 및 추천 ------------------ #
-selected_categories = st.multiselect("🍱 카테고리를 선택하세요", list(st.session_state.menus.keys()))
-
-with st.expander("➕ 메뉴 추가"):
-    new_menu = st.text_input("메뉴 이름")
-    new_category = st.selectbox("카테고리", list(st.session_state.menus.keys()))
-    if st.button("메뉴 추가하기"):
-        if new_menu:
-            st.session_state.menus[new_category].append(new_menu)
-            st.success(f"{new_menu}이(가) {new_category}에 추가되었습니다!")
-
-if st.button("✅ 메뉴 추천받기"):
-    if selected_categories:
-        pool = sum([st.session_state.menus[cat] for cat in selected_categories], [])
-    else:
-        pool = sum(st.session_state.menus.values(), [])
-
-    if pool:
-        choice = random.choice(pool)
-        st.subheader(f"✨ 오늘의 추천 메뉴는... **{choice}**!")
-        st.session_state.history.append(choice)
-
-        if st.button("👍 이 메뉴 먹고 싶어요! 투표"):
+if user_input:
+    try:
+        name, kcal = user_input.split(":")
+        name = name.strip()
+        kcal = int(kcal.strip())
+        diet_menu[name] = kcal
+        st.success(f"'{name}' 메뉴가 추가되었습니다!")
+    except:
+        st.error("형식이 올바르지 않습니다. 예: 참치샐러드:280")
